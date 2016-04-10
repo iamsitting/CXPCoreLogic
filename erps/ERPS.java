@@ -4,28 +4,32 @@ import java.io.*;
 public class ERPS {
 	
 	private volatile boolean erps_enabled = false;
+	private volatile boolean finished = false;
 	
 	//BTBuffer In Job
 	public class CheckBTBufferIn implements Runnable{
 		int buffval;
-		Scanner reader;
+		Random rand;
+		private boolean interrupted;
 
 		public CheckBTBufferIn(){
-			reader = new Scanner(System.in);
+			this.interrupted = false;
+			rand = new Random();
 		}
 		
 		public void run(){
 			try{
-				while(true){
+				while(!this.interrupted){
 					System.out.println("Waiting for value: ");
 
 					//simulate bufferin with Scanner
-					buffval = reader.nextInt();
+					buffval = rand.nextInt(6);
+					System.out.println("Input: "+buffval);
 
 					//check if accident
 					if(buffval == 1){
 						enableERPS();
-						break;
+						setInterrupt();
 					}
 				}
 				
@@ -34,25 +38,36 @@ public class ERPS {
 				ex.printStackTrace();
 			}
 		}
+		private void setInterrupt(){
+			this.interrupted = true;
+		}
 	}
 
 	public class DisableButtonClick implements Runnable{
 		Scanner reader;
+		private boolean interrupted;
+		Random rand;
 		
 		public DisableButtonClick(){
-			reader = new Scanner(System.in);
+			this.interrupted = false;
+			rand = new Random();
 		}
 
 		public void run(){
-
+			System.out.println("Disable, if you are okay...");
 			try{
-				while(true){
-					System.out.println("Disable, if you are okay...");
-					int input_val = reader.nextInt();
+				while(!this.interrupted){
+					
+					//int input_val = rand.nextInt(20)+10;
+					int input_val = 20;
+					//System.out.println("Input: "+input_val);
 
-					if(input_val == 100){
+					if(input_val == 25){
 						disableERPS();
-						break;
+						setInterrupt();
+					}
+					if(isMainFinished()){
+						setInterrupt();
 					}
 				}	
 			}
@@ -60,6 +75,10 @@ public class ERPS {
 				ex.printStackTrace();
 			}
 			
+		}
+
+		private void setInterrupt(){
+			this.interrupted = true;
 		}
 
 	}
@@ -72,62 +91,78 @@ public class ERPS {
 		erps_enabled = false;
 	}
 
+	public boolean isMainFinished(){
+		return finished;
+	}
 
 	public void go(){
-	
-		Runnable checkIn = new CheckBTBufferIn();
-		Thread t1 = new Thread(checkIn);
 		
 
-		Runnable disablebtn = new DisableButtonClick();
-		Thread t2 = new Thread(disablebtn);
-		/***************
-		
-		Instead of starting, joining, starting, etc.
-		Try a new instance each loop
-		i.e t1 = new Thread(Runnable {
+		Thread t1 = new Thread() {
 			public void run(){
-				#code
-				#See Head First Android for a good example
+				//nothing, on purpose
 			}
-		})
+		};
+		Thread t2 = new Thread(){
+			public void run(){
+				//nothing, on purpose
+			}
+		};
 
+		int count=20;
+		while(!finished){
 
-
-
-		****************/
-		int count=18;
-		while(true){
-
-			//ERPS Enabled
+			//ERPS Disabled
 			if(!erps_enabled){
-				if (count < 20) {
-					try{
-						if (t2.isAlive()) t2.join();
-						if (!t1.isAlive()) t1.start();
-					} catch (Exception ex){
-						ex.printStackTrace();
-					}
+				if (count < 30) {
 					
-					count = 20;
-				}
+					if(count != 20){
+
+						try{
+							count = 39;
+							while(t2.isAlive()){
+								System.out.println("Waiting for t2 to die.");
+							}
+							t1 = new Thread(new CheckBTBufferIn());
+							t1.start();
+
+						} catch (Exception ex){
+							ex.printStackTrace();
+						}
+					} //if-end
+					// only happens once
+					else {
+						count = 40;
+						while(t1.isAlive()){
+								System.out.println("Waiting for t1 to die.");
+							}
+						t1 = new Thread(new CheckBTBufferIn());
+						t1.start();
+					}
+				}//if-end
+
 				System.out.println("Processing...");
 				try{
 					Thread.sleep(1500);
 				} catch (InterruptedException ex){
 					System.out.println("Something went wrong");
 				}
-			}
+			}//if-end
 			
-			//ERPS Disabled
+			//ERPS Enabled
 			else{
 				if(count > 12){
 					try{
-						if (t1.isAlive()) t1.join();
-					} catch (InterruptedException ex){
-						System.out.println("Something went wrong.");
+						while(t1.isAlive()){
+							System.out.println("Waiting for t1 to die.");
+						}
+						t2 = new Thread(new DisableButtonClick());
+						t2.start();
+
+					} catch (Exception ex){
+						ex.printStackTrace();
 					}
-					t2.start();
+
 					count = 10;
 					System.out.println("Enabled!");
 				} 
@@ -139,46 +174,20 @@ public class ERPS {
 				} catch (InterruptedException ex){
 					System.out.println("Something went wrong.");
 				}
-				if (count < 1) System.out.println("SOS---HELP!!!");
-			}
-		}
+				if (count < 1){
+					System.out.println("SOS---HELP!!!");
+					finished = true;
+				} 
+			}//if-else-end
+			System.out.println(count);
+		}//while-end
 	
-	}
-	
-	public void timer(){
-		
-		Runnable disablebtn = new DisableButtonClick();
-		Thread t2 = new Thread(disablebtn);
-		t2.start();
-
-		int init_time = 10;
-
-		while(init_time > 0){
-			System.out.println(init_time +" s left...");
-			if(erps_enabled){
-				try{
-					Thread.sleep(1000);
-					init_time = init_time-1;
-				} catch (InterruptedException ex){
-					System.out.println("Something went wrong.");
-				}
-			}
-			else{
-				break;
-			}
-		}
-		//disablebtn.terminate();
-		try{
-			t2.join();
-		} catch (InterruptedException ex){
-			System.out.println("Something went wrong.");
-		}
-		System.out.println("SOS---HELP!!!");
-	}
+	}//go-end
 
 	public static void main(String[] args){
 		ERPS erps = new ERPS();
 		erps.go();
+		System.out.println("Done!");
 	}
 	
 	
